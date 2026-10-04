@@ -1,0 +1,25 @@
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE & OS Files
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# Project Temp & Data
+debug_*.png
+*.png
+*.jpg
+vocabulary.db
+config.json
+
+# Environment variables
+.env
