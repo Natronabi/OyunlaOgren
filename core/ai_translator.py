@@ -3,15 +3,16 @@ import json
 import google.generativeai as genai
 
 class AITranslator:
-    def __init__(self, api_key: str = None):
+    def __init__(self, model_name: str = "models/gemini-3.8-flash", api_key: str = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY bulunamadı! Lütfen ortam değişkenini ayarlayın.")
         
         genai.configure(api_key=self.api_key)
+        self.model_name = model_name
         
         self.model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name=self.model_name,
             generation_config={
                 "response_mime_type": "application/json",
                 "temperature": 0.3
