@@ -2,11 +2,83 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QSlider, QListWidget, QListWidgetItem, 
     QWidget, QFrame, QColorDialog, QRadioButton, QButtonGroup, 
-    QCheckBox, QComboBox
+    QCheckBox, QComboBox, QTabWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QColor, QFontDatabase
+from PyQt6.QtGui import QFont, QColor, QFontDatabase, QKeySequence
 from core.config_manager import ConfigManager
+
+class KeyRecordButton(QPushButton):
+    """Tıklandığında kullanıcının klavyeden basacağı tuşu kaydeden buton."""
+    key_changed = pyqtSignal(str)
+
+    def __init__(self, current_key="F9", parent=None):
+        super().__init__(parent)
+        self.current_key = current_key
+        self.is_recording = False
+        self.setText(self.current_key)
+        self.setFixedSize(110, 28)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.update_style()
+        self.clicked.connect(self.start_recording)
+
+    def update_style(self):
+        if self.is_recording:
+            self.setStyleSheet("""
+                QPushButton {
+                    background-color: #ff4757;
+                    color: #ffffff;
+                    font-weight: bold;
+                    border: 1px solid #ff6b81;
+                    border-radius: 5px;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                QPushButton {
+                    background-color: #1e1e28;
+                    color: #00c3ff;
+                    font-weight: bold;
+                    border: 1px solid #3a3a4c;
+                    border-radius: 5px;
+                }
+                QPushButton:hover {
+                    background-color: #282836;
+                    border-color: #00c3ff;
+                }
+            """)
+
+    def start_recording(self):
+        self.is_recording = True
+        self.setText("Tuşa Basın...")
+        self.update_style()
+        self.setFocus()
+
+    def keyPressEvent(self, event):
+        if not self.is_recording:
+            super().keyPressEvent(event)
+            return
+
+        key = event.key()
+        if key in (Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.Key_Meta):
+            return  # Sadece mod tuşlarına basıldıysa tam tuş bekle
+
+        seq = QKeySequence(key).toString(QKeySequence.SequenceFormat.NativeText)
+        if seq:
+            self.current_key = seq.upper()
+            self.setText(self.current_key)
+            self.is_recording = False
+            self.update_style()
+            self.key_changed.emit(self.current_key)
+            self.clearFocus()
+
+    def focusOutEvent(self, event):
+        if self.is_recording:
+            self.is_recording = False
+            self.setText(self.current_key)
+            self.update_style()
+        super().focusOutEvent(event)
+
 
 class FontItemWidget(QWidget):
     favorite_toggled = pyqtSignal(str, bool)
@@ -52,15 +124,13 @@ class SettingsDialog(QDialog):
     SAMPLE_DATA = [
         {"word": "whisper", "meaning": "fısıltı", "level": "B1"},
         {"word": "echo", "meaning": "yankılanmak", "level": "B1"},
-        {"word": "ruins", "meaning": "harabeler", "level": "B2"},
-        {"word": "ancient", "meaning": "kadim", "level": "B2"},
-        {"word": "destiny", "meaning": "kader", "level": "C1"}
+        {"word": "ruins", "meaning": "harabeler", "level": "B2"}
     ]
 
     def __init__(self, current_config: dict = None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("GameLingo - Görünüm & Düzen Ayarları")
-        self.setFixedSize(520, 710)
+        self.setWindowTitle("GameLingo - Ayarlar")
+        self.setFixedSize(520, 680)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
 
         self.config = current_config.copy() if current_config else ConfigManager.load_config()
@@ -81,6 +151,25 @@ class SettingsDialog(QDialog):
             QLabel {
                 color: #b0b0b8;
                 font-size: 12px;
+            }
+            QTabWidget::pane {
+                border: 1px solid #2a2a38;
+                border-radius: 6px;
+                background-color: #16161e;
+                padding: 10px;
+            }
+            QTabBar::tab {
+                background: #181822;
+                color: #888899;
+                padding: 6px 14px;
+                border-top-left-radius: 5px;
+                border-top-right-radius: 5px;
+                margin-right: 2px;
+            }
+            QTabBar::tab:selected {
+                background: #252536;
+                color: #00c3ff;
+                font-weight: bold;
             }
             QListWidget {
                 background-color: #181820;
@@ -134,26 +223,29 @@ class SettingsDialog(QDialog):
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 14, 20, 14)
+        layout.setContentsMargins(16, 12, 16, 12)
         layout.setSpacing(10)
 
-        # 1. CANLI ÖNİZLEME ALANI
-        lbl_prev = QLabel("Canlı Görünüm & Düzen Önizlemesi:")
-        lbl_prev.setStyleSheet("font-weight: bold; color: #ffffff;")
-        layout.addWidget(lbl_prev)
-
-        self.preview_frame = QFrame(self)
-        self.preview_frame.setMinimumHeight(105)
+        # Tab Bileşeni (Görünüm vs Kısayollar)
+        self.tabs = QTabWidget(self)
         
+        # --- TAB 1: GÖRÜNÜM AYARLARI ---
+        appearance_tab = QWidget()
+        app_layout = QVBoxLayout(appearance_tab)
+        app_layout.setContentsMargins(8, 8, 8, 8)
+        app_layout.setSpacing(10)
+
+        # Önizleme
+        self.preview_frame = QFrame(appearance_tab)
+        self.preview_frame.setMinimumHeight(100)
         self.frame_inner = QVBoxLayout(self.preview_frame)
-        self.frame_inner.setContentsMargins(12, 10, 12, 10)
+        self.frame_inner.setContentsMargins(12, 8, 12, 8)
         self.frame_inner.setSpacing(4)
 
         self.preview_badge = QLabel("⚡ YEREL ÇEVİRİ", self.preview_frame)
         self.preview_badge.setStyleSheet("color: #00ffaa; font-size: 10px; font-weight: bold;")
         self.frame_inner.addWidget(self.preview_badge)
 
-        # Canlı Önizlemede Orijinal Metin
         self.preview_original = QLabel('"What do these whispers echoing in the dark ruins mean?"', self.preview_frame)
         self.preview_original.setStyleSheet("color: #8c8c9e; font-size: 11px; font-style: italic; background: transparent; border: none;")
         self.frame_inner.addWidget(self.preview_original)
@@ -174,16 +266,11 @@ class SettingsDialog(QDialog):
         self.content_dir.addWidget(self.preview_vocab_box, stretch=2)
 
         self.frame_inner.addWidget(self.preview_content)
-        layout.addWidget(self.preview_frame)
+        app_layout.addWidget(self.preview_frame)
 
-        # 2. DÜZEN ŞABLONLARI
-        lbl_modes = QLabel("Görünüm Modu:")
-        lbl_modes.setStyleSheet("font-weight: bold; color: #ffffff;")
-        layout.addWidget(lbl_modes)
-
+        # Modlar
         mode_row = QHBoxLayout()
         self.mode_group = QButtonGroup(self)
-
         self.rb_bottom = QRadioButton("Alt Kelimeler")
         self.rb_side = QRadioButton("Yan Panel")
         self.rb_minimal = QRadioButton("Sadece Çeviri")
@@ -192,145 +279,161 @@ class SettingsDialog(QDialog):
         self.mode_group.addButton(self.rb_side, 2)
         self.mode_group.addButton(self.rb_minimal, 3)
 
-        current_mode = self.config.get("layout_mode", "bottom_words")
-        if current_mode == "side_words":
-            self.rb_side.setChecked(True)
-        elif current_mode == "minimal":
-            self.rb_minimal.setChecked(True)
-        else:
-            self.rb_bottom.setChecked(True)
+        curr_mode = self.config.get("layout_mode", "bottom_words")
+        if curr_mode == "side_words": self.rb_side.setChecked(True)
+        elif curr_mode == "minimal": self.rb_minimal.setChecked(True)
+        else: self.rb_bottom.setChecked(True)
 
         self.mode_group.buttonClicked.connect(self.on_mode_changed)
-
         mode_row.addWidget(self.rb_bottom)
         mode_row.addWidget(self.rb_side)
         mode_row.addWidget(self.rb_minimal)
         mode_row.addStretch()
-        layout.addLayout(mode_row)
+        app_layout.addLayout(mode_row)
 
-        # 3. KELİME & ORİJİNAL METİN SEÇENEKLERİ
-        extra_opt_row = QHBoxLayout()
-        lbl_v_count = QLabel("Kelime:")
-        self.vocab_combo = QComboBox(self)
-        self.vocab_combo.addItems(["En Önemli 2", "En Önemli 3", "En Önemli 5"])
-        curr_cnt = self.config.get("vocab_max_count", 2)
-        idx = 0 if curr_cnt == 2 else (1 if curr_cnt == 3 else 2)
-        self.vocab_combo.setCurrentIndex(idx)
-        self.vocab_combo.currentIndexChanged.connect(self.on_vocab_count_changed)
+        # Seçenekler
+        extra_row = QHBoxLayout()
+        self.cb_original = QCheckBox("Orijinal Metni Göster")
+        self.cb_original.setChecked(self.config.get("show_original_text", False))
+        self.cb_original.toggled.connect(self.on_original_toggled)
 
         self.cb_level = QCheckBox("Seviyeyi Göster [B1]")
         self.cb_level.setChecked(self.config.get("show_vocab_level", True))
         self.cb_level.toggled.connect(self.on_level_toggled)
 
-        self.cb_original = QCheckBox("Orijinal Metni Göster")
-        self.cb_original.setChecked(self.config.get("show_original_text", False))
-        self.cb_original.toggled.connect(self.on_original_toggled)
+        extra_row.addWidget(self.cb_original)
+        extra_row.addWidget(self.cb_level)
+        extra_row.addStretch()
+        app_layout.addLayout(extra_row)
 
-        extra_opt_row.addWidget(lbl_v_count)
-        extra_opt_row.addWidget(self.vocab_combo)
-        extra_opt_row.addSpacing(10)
-        extra_opt_row.addWidget(self.cb_level)
-        extra_opt_row.addSpacing(10)
-        extra_opt_row.addWidget(self.cb_original)
-        extra_opt_row.addStretch()
-        layout.addLayout(extra_opt_row)
-
-        # 4. YAZI BOYUTU
-        size_box = QFrame(self)
+        # Yazı Boyutu
+        size_box = QFrame(appearance_tab)
         size_layout = QHBoxLayout(size_box)
-        size_layout.setContentsMargins(0, 2, 0, 2)
+        size_layout.setContentsMargins(0, 0, 0, 0)
         size_layout.setSpacing(8)
 
-        lbl_size = QLabel("Yazı Boyutu:")
-        lbl_size.setFixedWidth(75)
-        
+        lbl_size = QLabel("Boyut:")
         btn_minus = QPushButton("-", size_box)
         btn_minus.setProperty("class", "step-btn")
-        btn_minus.setFixedSize(28, 28)
-        btn_minus.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_minus.clicked.connect(self.decrement_font_size)
+        btn_minus.setFixedSize(26, 26)
+        btn_minus.clicked.connect(lambda: self.size_slider.setValue(max(10, self.size_slider.value() - 1)))
 
         self.size_slider = QSlider(Qt.Orientation.Horizontal, size_box)
         self.size_slider.setRange(10, 30)
-        self.size_slider.setCursor(Qt.CursorShape.PointingHandCursor)
-        current_size = int(self.config.get("font_size", 13))
-        self.size_slider.setValue(current_size)
+        curr_size = int(self.config.get("font_size", 13))
+        self.size_slider.setValue(curr_size)
         self.size_slider.valueChanged.connect(self.on_font_size_changed)
 
         btn_plus = QPushButton("+", size_box)
         btn_plus.setProperty("class", "step-btn")
-        btn_plus.setFixedSize(28, 28)
-        btn_plus.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_plus.clicked.connect(self.increment_font_size)
+        btn_plus.setFixedSize(26, 26)
+        btn_plus.clicked.connect(lambda: self.size_slider.setValue(min(30, self.size_slider.value() + 1)))
 
-        self.size_val_lbl = QLabel(f"{current_size}px", size_box)
-        self.size_val_lbl.setFixedWidth(40)
-        self.size_val_lbl.setStyleSheet("font-weight: bold; color: #00c3ff;")
-
+        self.size_val_lbl = QLabel(f"{curr_size}px")
         size_layout.addWidget(lbl_size)
         size_layout.addWidget(btn_minus)
         size_layout.addWidget(self.size_slider)
         size_layout.addWidget(btn_plus)
         size_layout.addWidget(self.size_val_lbl)
-        layout.addWidget(size_box)
+        app_layout.addWidget(size_box)
 
-        # 5. FONT LİSTESİ
-        lbl_font_title = QLabel("Yazı Tipi (★ Favoriler Üstte):")
-        layout.addWidget(lbl_font_title)
-
-        self.font_list_widget = QListWidget(self)
-        self.font_list_widget.setFixedHeight(95)
+        # Font Seçimi
+        app_layout.addWidget(QLabel("Yazı Tipi (★ Favoriler):"))
+        self.font_list_widget = QListWidget(appearance_tab)
+        self.font_list_widget.setFixedHeight(85)
         self.font_list_widget.itemClicked.connect(self.on_font_item_clicked)
-        layout.addWidget(self.font_list_widget)
+        app_layout.addWidget(self.font_list_widget)
 
-        # 6. RENK & OPAKLIK
-        color_row = QHBoxLayout()
-        lbl_col = QLabel("Yazı Rengi:")
-        lbl_col.setFixedWidth(75)
-        self.text_color_btn = QPushButton(self)
-        self.text_color_btn.setFixedHeight(26)
-        self.text_color_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Renk, Opaklık ve Ovallik
+        sliders_box = QVBoxLayout()
+        sliders_box.setSpacing(6)
+
+        c_row = QHBoxLayout()
+        c_row.addWidget(QLabel("Yazı Rengi:"))
+        self.text_color_btn = QPushButton(appearance_tab)
+        self.text_color_btn.setFixedHeight(24)
         self.update_btn_color(self.text_color_btn, self.config.get("text_color", "#ffffff"))
         self.text_color_btn.clicked.connect(self.choose_text_color)
-        color_row.addWidget(lbl_col)
-        color_row.addWidget(self.text_color_btn)
-        layout.addLayout(color_row)
+        c_row.addWidget(self.text_color_btn)
+        sliders_box.addLayout(c_row)
 
         op_row = QHBoxLayout()
-        lbl_op = QLabel("Opaklık:")
-        lbl_op.setFixedWidth(75)
-        self.opacity_slider = QSlider(Qt.Orientation.Horizontal, self)
+        op_row.addWidget(QLabel("Opaklık:"))
+        self.opacity_slider = QSlider(Qt.Orientation.Horizontal, appearance_tab)
         self.opacity_slider.setRange(20, 100)
-        self.opacity_slider.setCursor(Qt.CursorShape.PointingHandCursor)
         curr_op = int(float(self.config.get("bg_opacity", 0.88)) * 100)
         self.opacity_slider.setValue(curr_op)
         self.opacity_val_lbl = QLabel(f"%{curr_op}")
-        self.opacity_val_lbl.setFixedWidth(40)
         self.opacity_slider.valueChanged.connect(self.on_opacity_changed)
-        op_row.addWidget(lbl_op)
         op_row.addWidget(self.opacity_slider)
         op_row.addWidget(self.opacity_val_lbl)
-        layout.addLayout(op_row)
+        sliders_box.addLayout(op_row)
 
-        # Köşe Ovalliği
         rad_row = QHBoxLayout()
-        lbl_rad = QLabel("Köşe Ovalliği:")
-        lbl_rad.setFixedWidth(75)
-        self.rad_slider = QSlider(Qt.Orientation.Horizontal, self)
+        rad_row.addWidget(QLabel("Köşe Ovalliği:"))
+        self.rad_slider = QSlider(Qt.Orientation.Horizontal, appearance_tab)
         self.rad_slider.setRange(0, 24)
-        self.rad_slider.setCursor(Qt.CursorShape.PointingHandCursor)
         curr_rad = int(self.config.get("border_radius", 8))
         self.rad_slider.setValue(curr_rad)
         self.rad_val_lbl = QLabel(f"{curr_rad}px")
-        self.rad_val_lbl.setFixedWidth(40)
         self.rad_slider.valueChanged.connect(self.on_radius_changed)
-        rad_row.addWidget(lbl_rad)
         rad_row.addWidget(self.rad_slider)
         rad_row.addWidget(self.rad_val_lbl)
-        layout.addLayout(rad_row)
+        sliders_box.addLayout(rad_row)
+
+        app_layout.addLayout(sliders_box)
+        self.tabs.addTab(appearance_tab, "🎨 Görünüm & Düzen")
+
+        # --- TAB 2: KISAYOL TUŞLARI ---
+        hotkey_tab = QWidget()
+        hk_layout = QVBoxLayout(hotkey_tab)
+        hk_layout.setContentsMargins(16, 20, 16, 20)
+        hk_layout.setSpacing(16)
+
+        info_box = QLabel("Tuşları değiştirmek için butona tıklayıp klavyenizdeki yeni tuşa basın:")
+        info_box.setStyleSheet("color: #a0a0b0; font-size: 12px;")
+        hk_layout.addWidget(info_box)
+
+        # 1. Alan Seçme Tuşu
+        row_sel = QHBoxLayout()
+        lbl_s = QLabel("🎯 Oyun Alanını Seç:")
+        lbl_s.setStyleSheet("color: #ffffff; font-weight: 500;")
+        self.btn_hk_select = KeyRecordButton(self.config.get("hotkey_select", "F9"), hotkey_tab)
+        self.btn_hk_select.key_changed.connect(lambda k: self.config.update({"hotkey_select": k}))
+        row_sel.addWidget(lbl_s)
+        row_sel.addStretch()
+        row_sel.addWidget(self.btn_hk_select)
+        hk_layout.addLayout(row_sel)
+
+        # 2. Canlı Takip Başlat / Durdur
+        row_tog = QHBoxLayout()
+        lbl_t = QLabel("▶ Canlı Takip (Başlat / Durdur):")
+        lbl_t.setStyleSheet("color: #ffffff; font-weight: 500;")
+        self.btn_hk_toggle = KeyRecordButton(self.config.get("hotkey_toggle", "F10"), hotkey_tab)
+        self.btn_hk_toggle.key_changed.connect(lambda k: self.config.update({"hotkey_toggle": k}))
+        row_tog.addWidget(lbl_t)
+        row_tog.addStretch()
+        row_tog.addWidget(self.btn_hk_toggle)
+        hk_layout.addLayout(row_tog)
+
+        # 3. Overlay Göster / Gizle
+        row_ov = QHBoxLayout()
+        lbl_o = QLabel("👁 Çeviri Kutusunu Göster / Gizle:")
+        lbl_o.setStyleSheet("color: #ffffff; font-weight: 500;")
+        self.btn_hk_overlay = KeyRecordButton(self.config.get("hotkey_overlay", "F11"), hotkey_tab)
+        self.btn_hk_overlay.key_changed.connect(lambda k: self.config.update({"hotkey_overlay": k}))
+        row_ov.addWidget(lbl_o)
+        row_ov.addStretch()
+        row_ov.addWidget(self.btn_hk_overlay)
+        hk_layout.addLayout(row_ov)
+
+        hk_layout.addStretch()
+        self.tabs.addTab(hotkey_tab, "⌨ Kısayol Tuşları")
+
+        layout.addWidget(self.tabs)
 
         # Kaydet Butonu
-        self.save_btn = QPushButton("Kaydet ve Uygula", self)
+        self.save_btn = QPushButton("Değişiklikleri Kaydet ve Kapat", self)
         self.save_btn.setFixedHeight(34)
         self.save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.save_btn.setStyleSheet("""
@@ -360,12 +463,6 @@ class SettingsDialog(QDialog):
         self.update_preview()
         self.settings_changed.emit(self.config)
 
-    def on_vocab_count_changed(self, idx):
-        counts = [2, 3, 5]
-        self.config["vocab_max_count"] = counts[idx]
-        self.update_preview()
-        self.settings_changed.emit(self.config)
-
     def on_level_toggled(self, checked):
         self.config["show_vocab_level"] = checked
         self.update_preview()
@@ -376,85 +473,21 @@ class SettingsDialog(QDialog):
         self.update_preview()
         self.settings_changed.emit(self.config)
 
-    def on_radius_changed(self, val):
-        self.rad_val_lbl.setText(f"{val}px")
-        self.config["border_radius"] = val
-        self.update_preview()
-        self.settings_changed.emit(self.config)
-
-    def update_preview(self):
-        bg = self.config.get("bg_color", "18, 18, 24")
-        opacity = self.config.get("bg_opacity", 0.88)
-        radius = int(self.config.get("border_radius", 8))
-        border = self.config.get("border_color", "rgba(255, 255, 255, 0.15)")
-        text_color = self.config.get("text_color", "#ffffff")
-        font_family = self.config.get("font_family", "Segoe UI")
-        font_size = int(self.config.get("font_size", 13))
-
-        mode = self.config.get("layout_mode", "bottom_words")
-        show_vocab = self.config.get("show_vocab", True)
-        max_count = int(self.config.get("vocab_max_count", 2))
-        show_level = self.config.get("show_vocab_level", True)
-        show_orig = self.config.get("show_original_text", False)
-
-        self.preview_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: rgba({bg}, {opacity});
-                border: 1px solid {border};
-                border-radius: {radius}px;
-            }}
-        """)
-
-        # Orijinal metin kutucuğunu ayara göre aç/kapat
-        if show_orig:
-            self.preview_original.show()
-        else:
-            self.preview_original.hide()
-
-        self.preview_trans.setStyleSheet(f"""
-            QLabel {{
-                color: {text_color};
-                font-family: '{font_family}';
-                font-size: {font_size}px;
-                font-weight: 500;
-                background: transparent;
-                border: none;
-            }}
-        """)
-
-        while self.preview_vocab_layout.count():
-            item = self.preview_vocab_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
-        if mode == "minimal" or not show_vocab:
-            self.preview_vocab_box.hide()
-        elif mode == "side_words":
-            self.content_dir.setDirection(QHBoxLayout.Direction.LeftToRight)
-            self.preview_vocab_box.show()
-        else:
-            self.content_dir.setDirection(QHBoxLayout.Direction.TopToBottom)
-            self.preview_vocab_box.show()
-
-        if mode != "minimal" and show_vocab:
-            active_items = self.SAMPLE_DATA[:max_count]
-            for itm in active_items:
-                w, m, lvl = itm["word"], itm["meaning"], itm["level"]
-                lvl_badge = f" <span style='color:#ffd700; font-size:10px;'>[{lvl}]</span>" if show_level else ""
-                html = f"<span style='color:#00e5ff; font-weight:bold;'>{w}</span>: <span style='color:#bbbbcc;'>{m}</span>{lvl_badge}"
-                lbl = QLabel(html, self.preview_vocab_box)
-                lbl.setStyleSheet("background: transparent; border: none; font-size: 11px;")
-                self.preview_vocab_layout.addWidget(lbl)
-
-    def decrement_font_size(self):
-        self.size_slider.setValue(max(10, self.size_slider.value() - 1))
-
-    def increment_font_size(self):
-        self.size_slider.setValue(min(30, self.size_slider.value() + 1))
-
     def on_font_size_changed(self, val):
         self.size_val_lbl.setText(f"{val}px")
         self.config["font_size"] = val
+        self.update_preview()
+        self.settings_changed.emit(self.config)
+
+    def on_opacity_changed(self, val):
+        self.opacity_val_lbl.setText(f"%{val}")
+        self.config["bg_opacity"] = round(val / 100.0, 2)
+        self.update_preview()
+        self.settings_changed.emit(self.config)
+
+    def on_radius_changed(self, val):
+        self.rad_val_lbl.setText(f"{val}px")
+        self.config["border_radius"] = val
         self.update_preview()
         self.settings_changed.emit(self.config)
 
@@ -505,11 +538,61 @@ class SettingsDialog(QDialog):
             self.update_preview()
             self.settings_changed.emit(self.config)
 
-    def on_opacity_changed(self, val):
-        self.opacity_val_lbl.setText(f"%{val}")
-        self.config["bg_opacity"] = round(val / 100.0, 2)
-        self.update_preview()
-        self.settings_changed.emit(self.config)
+    def update_preview(self):
+        bg = self.config.get("bg_color", "18, 18, 24")
+        opacity = self.config.get("bg_opacity", 0.88)
+        radius = int(self.config.get("border_radius", 8))
+        border = self.config.get("border_color", "rgba(255, 255, 255, 0.15)")
+        text_color = self.config.get("text_color", "#ffffff")
+        font_family = self.config.get("font_family", "Segoe UI")
+        font_size = int(self.config.get("font_size", 13))
+
+        mode = self.config.get("layout_mode", "bottom_words")
+        show_vocab = self.config.get("show_vocab", True)
+        show_orig = self.config.get("show_original_text", False)
+
+        self.preview_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: rgba({bg}, {opacity});
+                border: 1px solid {border};
+                border-radius: {radius}px;
+            }}
+        """)
+
+        if show_orig: self.preview_original.show()
+        else: self.preview_original.hide()
+
+        self.preview_trans.setStyleSheet(f"""
+            QLabel {{
+                color: {text_color};
+                font-family: '{font_family}';
+                font-size: {font_size}px;
+                font-weight: 500;
+                background: transparent;
+                border: none;
+            }}
+        """)
+
+        while self.preview_vocab_layout.count():
+            item = self.preview_vocab_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if mode == "minimal" or not show_vocab:
+            self.preview_vocab_box.hide()
+        elif mode == "side_words":
+            self.content_dir.setDirection(QHBoxLayout.Direction.LeftToRight)
+            self.preview_vocab_box.show()
+        else:
+            self.content_dir.setDirection(QHBoxLayout.Direction.TopToBottom)
+            self.preview_vocab_box.show()
+
+        if mode != "minimal" and show_vocab:
+            for itm in self.SAMPLE_DATA[:2]:
+                html = f"<span style='color:#00e5ff; font-weight:bold;'>{itm['word']}</span>: <span style='color:#bbbbcc;'>{itm['meaning']}</span>"
+                lbl = QLabel(html, self.preview_vocab_box)
+                lbl.setStyleSheet("background: transparent; border: none; font-size: 11px;")
+                self.preview_vocab_layout.addWidget(lbl)
 
     def save_and_close(self):
         ConfigManager.save_config(self.config)

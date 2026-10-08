@@ -16,7 +16,11 @@ DEFAULT_CONFIG = {
     "show_vocab": True,
     "vocab_max_count": 2,
     "show_vocab_level": True,
-    "show_original_text": False  # Orijinal metin görünürlüğü
+    "show_original_text": False,
+    # Özelleştirilebilir Kısayol Tuşları
+    "hotkey_select": "F9",
+    "hotkey_toggle": "F10",
+    "hotkey_overlay": "F11"
 }
 
 CONFIG_FILE = "config.json"
