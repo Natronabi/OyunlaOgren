@@ -1,5 +1,21 @@
 import sys
-import keyboard
+import os
+
+# TÜM BİLGİSAYARLARDA DPI KAYMASINI ÖNLEYEN EVRENSEL BLOK:
+# QApplication oluşturulmadan ÖNCE çağrılmalıdır!
+if os.name == "nt":
+    import ctypes
+    try:
+        # Windows 10/11 Per-Monitor v2 DPI Aware (En kararlı mod)
+        ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+    except Exception:
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except Exception:
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except Exception:
+                pass
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox, QFrame
@@ -18,6 +34,7 @@ class HotkeyBridge(QObject):
     trigger_select = pyqtSignal()
     trigger_toggle = pyqtSignal()
     trigger_overlay = pyqtSignal()
+    trigger_save = pyqtSignal()  # F7 İnteraktif Seçim Sinyali
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -39,6 +56,7 @@ class MainWindow(QMainWindow):
         self.hotkey_bridge.trigger_select.connect(self.start_selection)
         self.hotkey_bridge.trigger_toggle.connect(self.toggle_watcher)
         self.hotkey_bridge.trigger_overlay.connect(self.toggle_overlay_visibility)
+        self.hotkey_bridge.trigger_save.connect(self.overlay.toggle_interactive_save_mode)
 
         self.init_ui()
         self.position_on_screen_edge()
@@ -131,7 +149,7 @@ class MainWindow(QMainWindow):
         engine_box.addWidget(self.engine_combo)
         main_layout.addLayout(engine_box)
 
-        # Alan Seç Butonu (Kısayol etiketli)
+        # Alan Seç Butonu
         self.select_btn = QPushButton(self)
         self.select_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.select_btn.setStyleSheet("""
@@ -193,6 +211,7 @@ class MainWindow(QMainWindow):
         hk_sel = self.config.get("hotkey_select", "F9")
         hk_tog = self.config.get("hotkey_toggle", "F10")
         hk_ov = self.config.get("hotkey_overlay", "F11")
+        hk_save = self.config.get("hotkey_save_interactive", "F7")
 
         self.select_btn.setText(f"🎯 Oyun Alanını Seç ({hk_sel})")
         
@@ -201,7 +220,7 @@ class MainWindow(QMainWindow):
         else:
             self.toggle_btn.setText(f"▶ Canlı Takibi Başlat ({hk_tog})")
 
-        self.hotkey_info.setText(f"Kısayollar: {hk_sel} (Seç) | {hk_tog} (Takip) | {hk_ov} (Gizle/Göster)")
+        self.hotkey_info.setText(f"Kısayollar: {hk_sel} (Seç) | {hk_tog} (Takip) | {hk_ov} (Gizle) | {hk_save} (Kelime Kaydet)")
 
     def register_hotkeys(self):
         """Eski kısayolları temizleyip config'teki yeni tuşları bağlar."""
@@ -213,13 +232,15 @@ class MainWindow(QMainWindow):
         hk_sel = self.config.get("hotkey_select", "F9")
         hk_tog = self.config.get("hotkey_toggle", "F10")
         hk_ov = self.config.get("hotkey_overlay", "F11")
+        hk_save = self.config.get("hotkey_save_interactive", "F7")
 
         try:
             keyboard.add_hotkey(hk_sel, lambda: self.hotkey_bridge.trigger_select.emit())
             keyboard.add_hotkey(hk_tog, lambda: self.hotkey_bridge.trigger_toggle.emit())
             keyboard.add_hotkey(hk_ov, lambda: self.hotkey_bridge.trigger_overlay.emit())
+            keyboard.add_hotkey(hk_save, lambda: self.hotkey_bridge.trigger_save.emit())
         except Exception as e:
-            print(f"[Hotkey Hatası] Kısayollar atanamadı ({hk_sel}, {hk_tog}, {hk_ov}): {e}")
+            print(f"[Hotkey Hatası] Kısayollar atanamadı ({hk_sel}, {hk_tog}, {hk_ov}, {hk_save}): {e}")
 
         self.update_button_texts()
 
@@ -229,14 +250,34 @@ class MainWindow(QMainWindow):
         self.selector.start_selection()
 
     def on_area_selected(self, coords):
+        # coords -> selector'dan gelen kesin fiziksel koordinatlardır (phys_x, phys_y, phys_w, phys_h)
         self.roi_coords = coords
-        x, y, w, h = coords
-        self.area_lbl.setText(f"Seçili Alan: X={x}, Y={y}, {w}x{h} px")
+        px, py, pw, ph = coords
+
+        # Ekranın DPI katsayısını al (örneğin %150 için 1.5)
+        screen = self.screen() or QApplication.primaryScreen()
+        dpr = screen.devicePixelRatio() if screen else 1.0
+
+        # Pencereler (UI) için mantıksal koordinatlara geri çeviriyoruz
+        ui_x = int(round(px / dpr))
+        ui_y = int(round(py / dpr))
+        ui_w = int(round(pw / dpr))
+        ui_h = int(round(ph / dpr))
+
+        self.area_lbl.setText(f"Seçili Alan: X={px}, Y={py}, {pw}x{ph} px")
         self.status_lbl.setText("Durum: Alan belirlendi. Takip başlatabilirsiniz.")
         self.toggle_btn.setEnabled(True)
 
-        self.area_box.show_box(x, y, w, h)
-        self.overlay.move(x, max(30, y - self.overlay.height() - 10))
+        # 1. Yarı saydam mavi seçim kutusunu tam çizdiğin yere oturt
+        self.area_box.show_box(ui_x, ui_y, ui_w, ui_h)
+
+        # 2. Çeviri overlay panelini metin kutusunun dışına yerleştir
+        if ui_y > 180:
+            target_y = ui_y - self.overlay.height() - 15
+        else:
+            target_y = ui_y + ui_h + 15
+
+        self.overlay.move(max(10, ui_x), max(10, target_y))
         self.overlay.show()
         self.activateWindow()
         self.raise_()
@@ -293,7 +334,6 @@ class MainWindow(QMainWindow):
         if dialog.exec():
             self.config = ConfigManager.load_config()
             self.overlay.update_settings(self.config)
-            # Yeni kısayolları ana sisteme tekrar bağla
             self.register_hotkeys()
 
     def closeEvent(self, event):
