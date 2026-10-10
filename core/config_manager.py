@@ -5,7 +5,7 @@ DEFAULT_CONFIG = {
     # Görünüm
     "enable_bg": True,
     "bg_color": "18, 18, 24",
-    "bg_opacity": 0.90,
+    "bg_opacity": 0.60,
     "text_color": "#ffffff",
     "text_opacity": 1.0,
     "font_size": 13,

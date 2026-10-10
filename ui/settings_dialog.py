@@ -9,10 +9,6 @@ from core.config_manager import ConfigManager
 
 
 class HotkeyRecordButton(QPushButton):
-    """
-    Oyunlardaki gibi tıklandığında dinleme moduna geçen
-    ve basılan tuşu otomatik atayan özel buton.
-    """
     key_recorded = pyqtSignal(str)
 
     def __init__(self, current_key: str = "F9", parent=None):
@@ -68,12 +64,10 @@ class HotkeyRecordButton(QPushButton):
         key = event.key()
         modifiers = event.modifiers()
 
-        # ESC ile iptal et
         if key == Qt.Key.Key_Escape:
             self.stop_recording(self.current_key)
             return
 
-        # Sadece mod tuşuna basıldıysa (Ctrl, Shift, Alt) bekle
         if key in (Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.Key_Meta):
             return
 
@@ -85,9 +79,7 @@ class HotkeyRecordButton(QPushButton):
         if modifiers & Qt.KeyboardModifier.ShiftModifier:
             parts.append("Shift")
 
-        # Tuş adını al
         key_name = ""
-        # F1 - F12
         if Qt.Key.Key_F1 <= key <= Qt.Key.Key_F12:
             key_name = f"F{key - Qt.Key.Key_F1 + 1}"
         elif key == Qt.Key.Key_Space:
@@ -123,7 +115,7 @@ class SettingsDialog(QDialog):
     def __init__(self, current_config: dict, parent=None):
         super().__init__(parent)
         self.setWindowTitle("GameLingo Ayarları")
-        self.setFixedSize(500, 580)
+        self.setFixedSize(510, 640)
         self.config = dict(current_config)
 
         self.init_ui()
@@ -153,7 +145,6 @@ class SettingsDialog(QDialog):
             }
         """)
 
-        # Sekmeleri kur
         self.setup_appearance_tab()
         self.setup_engine_tab()
         self.setup_hotkeys_tab()
@@ -161,7 +152,6 @@ class SettingsDialog(QDialog):
 
         root_layout.addWidget(self.tabs)
 
-        # Alt Butonlar
         btn_box = QHBoxLayout()
         btn_box.setContentsMargins(4, 6, 4, 4)
 
@@ -200,7 +190,7 @@ class SettingsDialog(QDialog):
 
         root_layout.addLayout(btn_box)
 
-    # ---------------- 1. SEKME: GÖRÜNÜM & RENKLER ----------------
+    # ---------------- 1. SEKME: GÖRÜNÜM & ÇAPA KÖŞESİ ----------------
     def setup_appearance_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)
@@ -217,21 +207,9 @@ class SettingsDialog(QDialog):
                 font-size: 12px;
                 text-align: left;
             }
-            QPushButton:hover {
-                background-color: #2f2f45;
-                border: 1px solid #00c3ff;
-            }
-            QPushButton:pressed {
-                background-color: #1a1a26;
-            }
-            QPushButton:disabled {
-                background-color: #1a1a20;
-                color: #555566;
-                border: 1px solid #2a2a35;
-            }
+            QPushButton:hover { background-color: #2f2f45; border: 1px solid #00c3ff; }
         """
 
-        # --- ARKA PLAN SEÇENEKLERİ ---
         self.chk_enable_bg = QCheckBox("Panel Arka Planı Etkin Olsun")
         self.chk_enable_bg.setStyleSheet("font-weight: bold; font-size: 13px; color: #00c3ff;")
         self.chk_enable_bg.setChecked(self.config.get("enable_bg", True))
@@ -240,7 +218,6 @@ class SettingsDialog(QDialog):
 
         bg_row = QHBoxLayout()
         bg_row.setSpacing(8)
-
         self.btn_bg_color = QPushButton("🎨  Arka Plan Rengini Değiştir...")
         self.btn_bg_color.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_bg_color.setStyleSheet(action_button_style)
@@ -248,12 +225,12 @@ class SettingsDialog(QDialog):
         bg_row.addWidget(self.btn_bg_color, stretch=3)
 
         self.bg_preview = QLabel("       ")
-        self.bg_preview.setToolTip("Mevcut Arka Plan Rengi")
         self.update_bg_preview()
         bg_row.addWidget(self.bg_preview, stretch=1)
         layout.addLayout(bg_row)
 
-        bg_opacity_val = int(self.config.get("bg_opacity", 0.90) * 100)
+        # Varsayılan değer %65 yapıldı
+        bg_opacity_val = int(self.config.get("bg_opacity", 0.65) * 100)
         self.lbl_bg_opacity = QLabel(f"Arka Plan Saydamlığı: %{bg_opacity_val}")
         self.slider_bg_opacity = QSlider(Qt.Orientation.Horizontal)
         self.slider_bg_opacity.setRange(10, 100)
@@ -264,11 +241,9 @@ class SettingsDialog(QDialog):
 
         layout.addSpacing(6)
 
-        # --- YAZI METNİ SEÇENEKLERİ ---
         layout.addWidget(QLabel("<b>Metin Rengi ve Saydamlık:</b>"))
         txt_row = QHBoxLayout()
         txt_row.setSpacing(8)
-
         self.btn_text_color = QPushButton("✏️  Yazı Rengini Değiştir...")
         self.btn_text_color.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_text_color.setStyleSheet(action_button_style)
@@ -276,7 +251,6 @@ class SettingsDialog(QDialog):
         txt_row.addWidget(self.btn_text_color, stretch=3)
 
         self.txt_preview = QLabel("       ")
-        self.txt_preview.setToolTip("Mevcut Yazı Rengi")
         self.update_txt_preview()
         txt_row.addWidget(self.txt_preview, stretch=1)
         layout.addLayout(txt_row)
@@ -292,7 +266,6 @@ class SettingsDialog(QDialog):
 
         layout.addSpacing(6)
 
-        # Font Boyutu
         font_row = QHBoxLayout()
         font_row.addWidget(QLabel("Metin Boyutu (px):"))
         self.spin_font_size = QSpinBox()
@@ -303,14 +276,28 @@ class SettingsDialog(QDialog):
         font_row.addStretch()
         layout.addLayout(font_row)
 
-        # Orijinal Metin Checkbox
+        # Çapa Köşesi Seçimi
+        anchor_row = QHBoxLayout()
+        anchor_row.addWidget(QLabel("📌 Panel Çapa Köşesi (Sabit Nokta):"))
+        self.combo_anchor = QComboBox()
+        self.combo_anchor.addItem("Sol Üst (Varsayılan)", "top-left")
+        self.combo_anchor.addItem("Sağ Üst", "top-right")
+        self.combo_anchor.addItem("Sol Alt", "bottom-left")
+        self.combo_anchor.addItem("Sağ Alt", "bottom-right")
+
+        cur_anchor = self.config.get("anchor_corner", "top-left")
+        idx_anchor = self.combo_anchor.findData(cur_anchor)
+        if idx_anchor >= 0:
+            self.combo_anchor.setCurrentIndex(idx_anchor)
+        anchor_row.addWidget(self.combo_anchor)
+        layout.addLayout(anchor_row)
+
         self.chk_orig = QCheckBox("Orijinal OCR Metnini Panelde Göster")
         self.chk_orig.setChecked(self.config.get("show_original_text", False))
         self.chk_orig.toggled.connect(self.on_orig_toggled)
         layout.addWidget(self.chk_orig)
 
         self.toggle_bg_controls(self.chk_enable_bg.isChecked())
-
         layout.addStretch()
         self.tabs.addTab(tab, "Görünüm")
 
@@ -320,23 +307,61 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(tab)
         layout.setSpacing(10)
 
+        layout.addWidget(QLabel("<b>Pencereyi Kapatma Tercihi:</b>"))
+        close_row = QHBoxLayout()
+        close_row.addWidget(QLabel("X Butonuna Basıldığında:"))
+        self.combo_close = QComboBox()
+        self.combo_close.addItem("Her Seferinde Sor", "ask")
+        self.combo_close.addItem("Sistem Tepsisine Küçült", "tray")
+        self.combo_close.addItem("Uygulamayı Tamamen Kapat", "exit")
+        
+        cur_close = self.config.get("close_behavior", "ask")
+        idx_close = self.combo_close.findData(cur_close)
+        if idx_close >= 0:
+            self.combo_close.setCurrentIndex(idx_close)
+        close_row.addWidget(self.combo_close)
+        layout.addLayout(close_row)
+
+        layout.addSpacing(6)
+
         layout.addWidget(QLabel("<b>Gemini AI Ayarları:</b>"))
 
         layout.addWidget(QLabel("Gemini API Anahtarı:"))
+        api_row = QHBoxLayout()
         self.api_input = QLineEdit()
         self.api_input.setPlaceholderText("AIzaSy...")
         self.api_input.setText(self.config.get("gemini_api_key", ""))
-        self.api_input.textChanged.connect(lambda txt: self.config.update({"gemini_api_key": txt.strip()}))
-        layout.addWidget(self.api_input)
+        self.api_input.textChanged.connect(self.on_api_key_changed)
+        api_row.addWidget(self.api_input)
 
-        layout.addWidget(QLabel("Gemini Modeli:"))
+        self.btn_fetch_models = QPushButton("🔄 Modelleri Çek")
+        self.btn_fetch_models.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fetch_models.setStyleSheet("""
+            QPushButton {
+                background-color: #242436;
+                color: #00c3ff;
+                border: 1px solid #3d3d52;
+                border-radius: 4px;
+                padding: 5px 10px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover { background-color: #2e2e46; border-color: #00c3ff; }
+        """)
+        self.btn_fetch_models.clicked.connect(self.fetch_active_gemini_models)
+        api_row.addWidget(self.btn_fetch_models)
+        layout.addLayout(api_row)
+
+        model_header = QHBoxLayout()
+        model_header.addWidget(QLabel("Gemini Modeli:"))
+        self.lbl_model_status = QLabel("")
+        self.lbl_model_status.setStyleSheet("color: #888899; font-size: 11px;")
+        model_header.addWidget(self.lbl_model_status)
+        model_header.addStretch()
+        layout.addLayout(model_header)
+
         self.model_combo = QComboBox()
-        self.model_combo.addItems(["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"])
-        current_model = self.config.get("gemini_model", "gemini-1.5-flash")
-        idx = self.model_combo.findText(current_model)
-        if idx >= 0:
-            self.model_combo.setCurrentIndex(idx)
-        self.model_combo.currentTextChanged.connect(lambda txt: self.config.update({"gemini_model": txt}))
+        self.populate_default_models()
         layout.addWidget(self.model_combo)
 
         layout.addSpacing(8)
@@ -356,16 +381,92 @@ class SettingsDialog(QDialog):
         layout.addStretch()
         self.tabs.addTab(tab, "Motorlar & AI")
 
-    # ---------------- 3. SEKME: KISAYOL TUŞLARI (CANLI BUTONLAR) ----------------
+        if self.api_input.text().strip():
+            self.fetch_active_gemini_models()
+
+    def populate_default_models(self):
+        defaults = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+        self.model_combo.clear()
+        self.model_combo.addItems(defaults)
+        cur = self.config.get("gemini_model", "gemini-1.5-flash")
+        idx = self.model_combo.findText(cur)
+        if idx >= 0:
+            self.model_combo.setCurrentIndex(idx)
+        else:
+            self.model_combo.addItem(cur)
+            self.model_combo.setCurrentText(cur)
+        self.model_combo.currentTextChanged.connect(lambda txt: self.config.update({"gemini_model": txt}))
+
+    def on_api_key_changed(self, txt: str):
+        self.config["gemini_api_key"] = txt.strip()
+
+    def fetch_active_gemini_models(self):
+        api_key = self.api_input.text().strip()
+        if not api_key:
+            self.lbl_model_status.setText("(Önce API anahtarını girin)")
+            self.lbl_model_status.setStyleSheet("color: #ffaa00; font-size: 11px;")
+            return
+
+        self.lbl_model_status.setText("Modeller çekiliyor...")
+        self.lbl_model_status.setStyleSheet("color: #00c3ff; font-size: 11px;")
+        self.btn_fetch_models.setEnabled(False)
+
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            models = genai.list_models()
+
+            usable_models = []
+            for m in models:
+                if "generateContent" in m.supported_generation_methods:
+                    clean_name = m.name.replace("models/", "")
+                    usable_models.append(clean_name)
+
+            if usable_models:
+                usable_models.sort()
+                current_selected = self.config.get("gemini_model", "")
+                
+                self.model_combo.blockSignals(True)
+                self.model_combo.clear()
+                self.model_combo.addItems(usable_models)
+
+                idx = self.model_combo.findText(current_selected)
+                if idx >= 0:
+                    self.model_combo.setCurrentIndex(idx)
+                elif "gemini-1.5-flash" in usable_models:
+                    self.model_combo.setCurrentText("gemini-1.5-flash")
+                elif "gemini-2.0-flash" in usable_models:
+                    self.model_combo.setCurrentText("gemini-2.0-flash")
+                
+                self.config["gemini_model"] = self.model_combo.currentText()
+                self.model_combo.blockSignals(False)
+
+                self.lbl_model_status.setText(f"✓ {len(usable_models)} aktif model bulundu")
+                self.lbl_model_status.setStyleSheet("color: #00ffaa; font-size: 11px;")
+            else:
+                self.lbl_model_status.setText("Uygun model bulunamadı.")
+                self.lbl_model_status.setStyleSheet("color: #ff5555; font-size: 11px;")
+
+        except Exception as e:
+            err_msg = str(e)
+            if "API_KEY_INVALID" in err_msg or "400" in err_msg:
+                self.lbl_model_status.setText("Geçersiz API Anahtarı!")
+            else:
+                self.lbl_model_status.setText("Bağlantı hatası oluştu.")
+            self.lbl_model_status.setStyleSheet("color: #ff5555; font-size: 11px;")
+            print(f"[Model Listeleme Hatası]: {e}")
+        finally:
+            self.btn_fetch_models.setEnabled(True)
+
+    # ---------------- 3. SEKME: KISAYOL TUŞLARI ----------------
     def setup_hotkeys_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)
         layout.setSpacing(12)
 
         layout.addWidget(QLabel("<b>Global Klavye Kısayolları:</b>"))
-        layout.addWidget(QLabel("<i>Değiştirmek istediğiniz tuşa tıklayın ve klavyeden yeni tuşa basın. (İptal için ESC)</i>"))
+        layout.addWidget(QLabel("<i>Değiştirmek istediğiniz tuşa tıklayın ve yeni tuşa basın. (İptal için ESC)</i>"))
 
-        # Alan Seçimi
         h1 = QHBoxLayout()
         lbl1 = QLabel("🎯 Alan Seçme Tuşu:")
         lbl1.setFixedWidth(190)
@@ -375,7 +476,6 @@ class SettingsDialog(QDialog):
         h1.addWidget(self.btn_hk_select, stretch=1)
         layout.addLayout(h1)
 
-        # Canlı Takip Başlat / Durdur
         h2 = QHBoxLayout()
         lbl2 = QLabel("▶ Takip Başlat / Durdur:")
         lbl2.setFixedWidth(190)
@@ -385,7 +485,6 @@ class SettingsDialog(QDialog):
         h2.addWidget(self.btn_hk_toggle, stretch=1)
         layout.addLayout(h2)
 
-        # Paneli Gizle / Göster
         h3 = QHBoxLayout()
         lbl3 = QLabel("👁 Paneli Gizle / Göster:")
         lbl3.setFixedWidth(190)
@@ -395,7 +494,6 @@ class SettingsDialog(QDialog):
         h3.addWidget(self.btn_hk_overlay, stretch=1)
         layout.addLayout(h3)
 
-        # İnteraktif Kayıt Modu
         h4 = QHBoxLayout()
         lbl4 = QLabel("✨ Kelime Kaydetme Modu:")
         lbl4.setFixedWidth(190)
@@ -414,11 +512,12 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(tab)
         layout.setSpacing(10)
 
-        layout.addWidget(QLabel("<b>Gemini Kelime Çıkarım Ayarları:</b>"))
+        layout.addWidget(QLabel("<b>Kelime Çıkarım & Kart Ayarları:</b>"))
 
         self.chk_vocab = QCheckBox("Kelime Analiz Kartlarını Göster")
-        self.chk_vocab.setChecked(self.config.get("show_vocab", True))
-        self.chk_vocab.toggled.connect(lambda c: self.config.update({"show_vocab": c}))
+        current_show_vocab = self.config.get("show_vocabulary", self.config.get("show_vocab", True))
+        self.chk_vocab.setChecked(current_show_vocab)
+        self.chk_vocab.toggled.connect(self.on_vocab_toggled)
         layout.addWidget(self.chk_vocab)
 
         self.chk_level = QCheckBox("Kelime Seviyesini Göster ([B1], [C1])")
@@ -430,7 +529,7 @@ class SettingsDialog(QDialog):
         v_row.addWidget(QLabel("Maksimum Kelime Sayısı:"))
         self.spin_vocab_count = QSpinBox()
         self.spin_vocab_count.setRange(1, 6)
-        self.spin_vocab_count.setValue(int(self.config.get("vocab_max_count", 3)))
+        self.spin_vocab_count.setValue(int(self.config.get("vocab_max_count", 4)))
         self.spin_vocab_count.valueChanged.connect(lambda val: self.config.update({"vocab_max_count": val}))
         v_row.addWidget(self.spin_vocab_count)
         v_row.addStretch()
@@ -438,6 +537,11 @@ class SettingsDialog(QDialog):
 
         layout.addStretch()
         self.tabs.addTab(tab, "Kelimeler")
+
+    def on_vocab_toggled(self, checked: bool):
+        self.config["show_vocab"] = checked
+        self.config["show_vocabulary"] = checked
+        self.emit_change()
 
     # ---------------- YARDIMCI METOTLAR ----------------
     def toggle_bg_controls(self, enabled: bool):
@@ -517,6 +621,11 @@ class SettingsDialog(QDialog):
         self.settings_changed.emit(self.config)
 
     def save_and_close(self):
+        self.config["anchor_corner"] = self.combo_anchor.currentData()
+        self.config["close_behavior"] = self.combo_close.currentData()
+        self.config["bg_opacity"] = self.slider_bg_opacity.value() / 100.0
+        self.config["text_opacity"] = self.slider_text_opacity.value() / 100.0
+        self.config["font_size"] = self.spin_font_size.value()
         ConfigManager.save_config(self.config)
         self.settings_changed.emit(self.config)
         self.accept()
