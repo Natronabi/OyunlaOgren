@@ -3,9 +3,8 @@ import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-# Gemini SDK
+# Gemini Resmi Yeni SDK
 from google import genai
-from google.genai import types
 
 # NVIDIA / OpenAI-Compatible SDK
 try:

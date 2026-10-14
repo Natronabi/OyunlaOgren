@@ -28,7 +28,9 @@ from ui.overlay import TranslationOverlay
 from ui.settings_dialog import SettingsDialog
 from ui.area_box import AreaPreviewFrame
 from ui.practice_window import PracticeWindow
+from ui.sync_status_widget import SyncStatusWidget
 from ui.saved_words_dialog import SavedWordsDialog
+from core.vocabulary_db import VocabularyDB
 from core.auto_watcher import AutoWatcherWorker
 from core.config_manager import ConfigManager
 
@@ -62,7 +64,7 @@ class CloseConfirmDialog(QDialog):
             }
         """)
 
-        self.choice = None  # "tray" veya "exit"
+        self.choice = None
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(22, 20, 22, 18)
@@ -72,12 +74,10 @@ class CloseConfirmDialog(QDialog):
         lbl.setWordWrap(True)
         lay.addWidget(lbl)
 
-        # Hatırla Kutucuğu
         self.chk_remember = QCheckBox("Bu tercihimi hatırla (Bir daha sorma)")
         self.chk_remember.setCursor(Qt.CursorShape.PointingHandCursor)
         lay.addWidget(self.chk_remember)
 
-        # Bilgilendirme Notu
         lbl_hint = QLabel("ℹ Bu tercihi daha sonra ⚙ Ayarlar menüsünden dilediğiniz zaman değiştirebilirsiniz.")
         lbl_hint.setWordWrap(True)
         lbl_hint.setStyleSheet("color: #77778a; font-size: 11px; font-style: italic;")
@@ -134,9 +134,10 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("GameLingo Translator")
-        self.setFixedSize(360, 520)
+        self.setFixedSize(360, 580)
 
         self.config = ConfigManager.load_config()
+        self.vocab_db = VocabularyDB()
         self.roi_coords = None
         self.watcher = None
         self.practice_dialog = None
@@ -211,7 +212,6 @@ class MainWindow(QMainWindow):
         self.showNormal()
         self.activateWindow()
         self.raise_()
-        # Canlı izleme çalışmıyorsa ve koordinat varsa mavi seçim alanını geri getir
         if self.roi_coords and (self.watcher is None or not self.watcher.isRunning()):
             px, py, pw, ph = self.roi_coords
             screen = self.screen() or QApplication.primaryScreen()
@@ -223,7 +223,6 @@ class MainWindow(QMainWindow):
             self.area_box.show_box(ui_x, ui_y, ui_w, ui_h)
 
     def hide_to_tray(self):
-        """Uygulama arka plana geçtiğinde ana ekranı ve mavi kılavuz kutusunu gizler/kapatır."""
         self.hide()
         if hasattr(self, "area_box") and self.area_box:
             self.area_box.hide()
@@ -236,7 +235,6 @@ class MainWindow(QMainWindow):
         )
 
     def changeEvent(self, event):
-        """Pencere minimize edildiğinde (simge durumuna küçültüldüğünde) mavi çerçeveyi gizler."""
         if event.type() == QEvent.Type.WindowStateChange:
             if self.isMinimized():
                 if hasattr(self, "area_box") and self.area_box:
@@ -278,7 +276,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
         main_layout.setContentsMargins(18, 16, 18, 16)
-        main_layout.setSpacing(10)
+        main_layout.setSpacing(9)
 
         header_layout = QHBoxLayout()
         title_lbl = QLabel("GameLingo")
@@ -425,6 +423,10 @@ class MainWindow(QMainWindow):
 
         main_layout.addLayout(bottom_row)
         main_layout.addStretch()
+
+        # Canlı Eşitleme Durum Rozeti (Bulut / İnternet Takibi)
+        self.sync_badge = SyncStatusWidget(self.vocab_db, self.vocab_db.cloud_sync, self)
+        main_layout.addWidget(self.sync_badge)
 
         self.hotkey_info = QLabel(self)
         self.hotkey_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -587,7 +589,6 @@ class MainWindow(QMainWindow):
             self.register_hotkeys()
 
     def closeEvent(self, event):
-        """Kullanıcının tercihine göre kapatır, tepsiye küçültür veya sorar."""
         close_pref = self.config.get("close_behavior", "ask")
 
         if close_pref == "tray":

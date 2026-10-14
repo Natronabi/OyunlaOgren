@@ -23,3 +23,16 @@ config.json
 
 # Environment variables
 .env
+# database
+serviceAccountKey.json
+# Ek Sanal Ortam ve Derleme Çıktıları
+venv311/
+dist/
+build/
+*.spec
+
+# Node ve Android Derleme Klasörleri
+node_modules/
+android/.gradle/
+android/app/build/
+android/build/

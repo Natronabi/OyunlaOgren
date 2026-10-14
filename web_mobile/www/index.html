@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>GameLingo Mobile Companion</title>
+
+  <!-- PWA & Tam Ekran Entegrasyonu -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#13141b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GameLingo">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/808/808439.png">
+
+  <style>
+    :root {
+      --bg: #13141b;
+      --card-bg: #1c1d27;
+      --border: #2c2d3d;
+      --green: #58cc02;
+      --green-dark: #46a302;
+      --red: #ea2b2b;
+      --accent: #00c3ff;
+      --text: #ffffff;
+      --text-dim: #9090aa;
+    }
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh; /* Mobil tarayıcı dinamik yükseklik düzeltmesi */
+      overflow: hidden;
+      /* Çentik ve alt gezinme çubuğu boşlukları */
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .progress-track {
+      flex: 1;
+      height: 14px;
+      background: #252636;
+      border-radius: 7px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--green);
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .hearts {
+      font-size: 18px;
+      font-weight: 800;
+      color: #ff4b4b;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    main {
+      flex: 1;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow-y: auto;
+    }
+    .prompt-box {
+      margin-bottom: 24px;
+    }
+    .prompt-label {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .prompt-text {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: #fff;
+    }
+    .sentence-assembly-area {
+      min-height: 54px;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-content: flex-start;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+    }
+    .word-tiles-bank {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .tile {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-bottom: 4px solid var(--border);
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+      transition: transform 0.1s;
+    }
+    .tile:active {
+      transform: translateY(2px);
+      border-bottom-width: 2px;
+    }
+    .tile.used {
+      opacity: 0.25;
+      pointer-events: none;
+    }
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .option-card {
+      background: var(--card-bg);
+      border: 2px solid var(--border);
+      border-bottom: 4px solid var(--border);
+      padding: 16px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      transition: all 0.15s;
+    }
+    .option-card.selected {
+      border-color: var(--accent);
+      background: #172635;
+    }
+    footer {
+      padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .btn-action {
+      width: 100%;
+      padding: 15px;
+      border-radius: 14px;
+      border: none;
+      border-bottom: 4px solid var(--green-dark);
+      background: var(--green);
+      color: #000;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.1s;
+    }
+    .btn-action:disabled {
+      background: #2a2b38;
+      border-bottom-color: #20212b;
+      color: #555768;
+      cursor: not-allowed;
+    }
+    .feedback-drawer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 20px;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+      transform: translateY(100%);
+      transition: transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      z-index: 99;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .feedback-drawer.correct {
+      background: #132f1b;
+      border-top: 2px solid var(--green);
+      transform: translateY(0);
+    }
+    .feedback-drawer.wrong {
+      background: #38161a;
+      border-top: 2px solid var(--red);
+      transform: translateY(0);
+    }
+    .feedback-title {
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .feedback-sub {
+      font-size: 14px;
+      color: var(--text-dim);
+    }
+    .screen-center {
+      text-align: center;
+      margin: auto 0;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="progress-track">
+      <div id="progressFill" class="progress-fill"></div>
+    </div>
+    <div class="hearts">
+      ❤️ <span id="heartCount">5</span>
+    </div>
+  </header>
+
+  <main id="gameContainer">
+    <div class="screen-center">
+      <h2>Oyun Havuzu Yükleniyor...</h2>
+      <p style="color: var(--text-dim); margin-top: 8px;">Firebase Firestore bulutuna bağlanılıyor</p>
+    </div>
+  </main>
+
+  <footer id="footerArea">
+    <button id="checkBtn" class="btn-action" disabled>Kontrol Et</button>
+  </footer>
+
+  <div id="feedbackDrawer" class="feedback-drawer">
+    <div id="feedbackTitle" class="feedback-title"></div>
+    <div id="feedbackSub" class="feedback-sub"></div>
+    <button id="drawerNextBtn" class="btn-action" style="margin-top: 4px;">Devam Et</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+    import { 
+      getFirestore, 
+      collection, 
+      getDocs, 
+      doc, 
+      updateDoc, 
+      increment 
+    } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBiPuiKK7M3MVEuooDcN4XvPJpYt4ByNgw",
+      authDomain: "gamelingo-app.firebaseapp.com",
+      projectId: "gamelingo-app",
+      storageBucket: "gamelingo-app.firebasestorage.app",
+      messagingSenderId: "457474211053",
+      appId: "1:457474211053:web:b60b6f08e24f4c94ad20e4",
+      measurementId: "G-R1F28H6KLT"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let pool = [];
+    let currentQuestionIndex = 0;
+    let questions = [];
+    let hearts = 5;
+    let selectedAnswer = null;
+    let assembledTokens = [];
+
+    async function init() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "vocabulary"));
+        pool = [];
+        querySnapshot.forEach((d) => {
+          pool.push({ id: d.id, ...d.data() });
+        });
+        
+        if (!pool || pool.length === 0) {
+          showEmptyState("Havuzda henüz kayıtlı ifade yok!", "Bilgisayardaki GameLingo uygulamasından birkaç oyun ifadesi kaydedin.");
+          return;
+        }
+
+        buildLessonPlan();
+        loadQuestion(0);
+      } catch (err) {
+        showEmptyState("Bulut Bağlantı Hatası", err.message);
+      }
+    }
+
+    function showEmptyState(title, msg) {
+      document.getElementById('gameContainer').innerHTML = `
+        <div class="screen-center">
+          <div style="font-size: 48px; margin-bottom: 12px;">🎮</div>
+          <h2>${title}</h2>
+          <p style="color: var(--text-dim); margin-top: 8px; line-height: 1.4;">${msg}</p>
+        </div>
+      `;
+      document.getElementById('footerArea').style.display = 'none';
+    }
+
+    function buildLessonPlan() {
+      questions = [];
+      const shuffled = [...pool].sort(() => 0.5 - Math.random());
+
+      shuffled.forEach(item => {
+        const isSentence = item.level === "Cümle" || (item.word && item.word.trim().split(/\s+/).length > 2);
+        if (isSentence) {
+          questions.push({ type: 'scramble', data: item });
+        } else {
+          questions.push({ type: 'choice', data: item });
+        }
+      });
+
+      if (questions.length > 8) questions = questions.slice(0, 8);
+    }
+
+    function loadQuestion(idx) {
+      currentQuestionIndex = idx;
+      selectedAnswer = null;
+      assembledTokens = [];
+      updateProgress();
+
+      const q = questions[idx];
+      const checkBtn = document.getElementById('checkBtn');
+      checkBtn.disabled = true;
+
+      if (q.type === 'choice') {
+        renderChoice(q.data);
+      } else {
+        renderScramble(q.data);
+      }
+    }
+
+    function renderChoice(item) {
+      const isEnToTr = Math.random() > 0.5;
+      const questionText = isEnToTr ? item.word : item.meaning;
+      const correctAnswer = isEnToTr ? item.meaning : item.word;
+
+      const distractors = pool
+        .filter(w => (isEnToTr ? w.meaning : w.word) !== correctAnswer)
+        .map(w => isEnToTr ? w.meaning : w.word)
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 3);
+
+      const allOptions = [correctAnswer, ...distractors].sort(() => 0.5 - Math.random());
+
+      let html = `
+        <div class="prompt-box">
+          <div class="prompt-label">Doğru Karşılığı Seç</div>
+          <div class="prompt-text">${questionText}</div>
+        </div>
+        <div class="options-grid">
+      `;
+
+      allOptions.forEach(opt => {
+        html += `<div class="option-card" onclick="window.selectOption(this, '${encodeURIComponent(opt)}')">${opt}</div>`;
+      });
+      html += `</div>`;
+
+      document.getElementById('gameContainer').innerHTML = html;
+      window.currentCorrectAnswer = correctAnswer;
+      window.currentItemId = item.id;
+    }
+
+    window.selectOption = function(el, optVal) {
+      document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedAnswer = decodeURIComponent(optVal);
+      document.getElementById('checkBtn').disabled = false;
+    };
+
+    function renderScramble(item) {
+      const targetEnglish = item.context_sentence || item.word;
+      const words = targetEnglish.trim().split(/\s+/);
+      const tiles = [...words].sort(() => 0.5 - Math.random());
+
+      let html = `
+        <div class="prompt-box">
+          <div class="prompt-label">Cümleyi Birleştir</div>
+          <div class="prompt-text">${item.meaning}</div>
+        </div>
+        <div id="assemblyArea" class="sentence-assembly-area"></div>
+        <div id="tilesBank" class="word-tiles-bank">
+      `;
+
+      tiles.forEach((w, i) => {
+        html += `<button id="tile-${i}" class="tile" onclick="window.handleTilePick('${encodeURIComponent(w)}', ${i})">${w}</button>`;
+      });
+      html += `</div>`;
+
+      document.getElementById('gameContainer').innerHTML = html;
+      window.targetSentence = targetEnglish.trim();
+      window.currentItemId = item.id;
+    }
+
+    window.handleTilePick = function(wordEnc, tileIndex) {
+      const word = decodeURIComponent(wordEnc);
+      const tileBtn = document.getElementById(`tile-${tileIndex}`);
+      
+      tileBtn.classList.add('used');
+      assembledTokens.push({ word, tileIndex });
+      renderAssemblyArea();
+
+      document.getElementById('checkBtn').disabled = assembledTokens.length === 0;
+    };
+
+    window.handleTileDrop = function(tokenIndex) {
+      const dropped = assembledTokens.splice(tokenIndex, 1)[0];
+      document.getElementById(`tile-${dropped.tileIndex}`).classList.remove('used');
+      renderAssemblyArea();
+
+      document.getElementById('checkBtn').disabled = assembledTokens.length === 0;
+    };
+
+    function renderAssemblyArea() {
+      const area = document.getElementById('assemblyArea');
+      area.innerHTML = '';
+      assembledTokens.forEach((t, i) => {
+        const span = document.createElement('div');
+        span.className = 'tile';
+        span.textContent = t.word;
+        span.onclick = () => window.handleTileDrop(i);
+        area.appendChild(span);
+      });
+    }
+
+    function updateProgress() {
+      const pct = (currentQuestionIndex / questions.length) * 100;
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('heartCount').textContent = hearts;
+    }
+
+    document.getElementById('checkBtn').onclick = () => {
+      const q = questions[currentQuestionIndex];
+      let isCorrect = false;
+
+      if (q.type === 'choice') {
+        isCorrect = selectedAnswer === window.currentCorrectAnswer;
+      } else {
+        const built = assembledTokens.map(t => t.word).join(' ');
+        isCorrect = built.toLowerCase() === window.targetSentence.toLowerCase();
+      }
+
+      showFeedback(isCorrect);
+    };
+
+    function showFeedback(isCorrect) {
+      const drawer = document.getElementById('feedbackDrawer');
+      const title = document.getElementById('feedbackTitle');
+      const sub = document.getElementById('feedbackSub');
+
+      if (isCorrect) {
+        drawer.className = '
