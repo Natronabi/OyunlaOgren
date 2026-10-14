@@ -24,6 +24,12 @@ jobs:
         with:
           node-version: 20
 
+      - name: Capacitor Bağımlılıklarını Kur ve Eşitle
+        run: |
+          cd web_mobile
+          npm install
+          npx cap sync android
+
       - name: Gradle Yetkisi Ver
         run: chmod +x ./web_mobile/android/gradlew
 
