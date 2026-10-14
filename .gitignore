@@ -16,8 +16,6 @@ desktop.ini
 
 # Project Temp & Data
 debug_*.png
-*.png
-*.jpg
 vocabulary.db
 config.json
 
