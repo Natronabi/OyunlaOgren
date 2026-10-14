@@ -1,11 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>GameLingo Mobile Companion</title>
 
-  <!-- PWA & Tam Ekran Entegrasyonu -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#13141b">
   <meta name="mobile-web-app-capable" content="yes">
@@ -40,9 +39,8 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
-      height: 100dvh; /* Mobil tarayıcı dinamik yükseklik düzeltmesi */
+      height: 100dvh;
       overflow: hidden;
-      /* Çentik ve alt gezinme çubuğu boşlukları */
       padding-top: env(safe-area-inset-top, 0px);
       padding-bottom: env(safe-area-inset-bottom, 0px);
     }
@@ -255,10 +253,7 @@
     import { 
       getFirestore, 
       collection, 
-      getDocs, 
-      doc, 
-      updateDoc, 
-      increment 
+      getDocs 
     } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -464,4 +459,35 @@
       const sub = document.getElementById('feedbackSub');
 
       if (isCorrect) {
-        drawer.className = '
+        drawer.className = 'feedback-drawer correct';
+        title.textContent = 'Harika! Doğru Cevap 🎉';
+        sub.textContent = '';
+      } else {
+        drawer.className = 'feedback-drawer wrong';
+        title.textContent = 'Yanlış Cevap!';
+        sub.textContent = `Doğrusu: ${window.currentCorrectAnswer || window.targetSentence}`;
+        hearts = Math.max(0, hearts - 1);
+        document.getElementById('heartCount').textContent = hearts;
+      }
+    }
+
+    document.getElementById('drawerNextBtn').onclick = () => {
+      const drawer = document.getElementById('feedbackDrawer');
+      drawer.className = 'feedback-drawer';
+
+      if (hearts <= 0) {
+        showEmptyState("Canın Bitti!", "Biraz mola verip tekrar deneyebilirsin.");
+        return;
+      }
+
+      if (currentQuestionIndex + 1 < questions.length) {
+        loadQuestion(currentQuestionIndex + 1);
+      } else {
+        showEmptyState("Tebrikler! 🏆", "Tüm oyun kelimelerini başarıyla tamamladın.");
+      }
+    };
+
+    init();
+  </script>
+</body>
+</html>
